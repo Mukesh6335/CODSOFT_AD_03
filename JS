@@ -1,0 +1,111 @@
+let alarms = [];
+let alarmTimeouts = [];
+
+function updateCurrentTime() {
+    const now = new Date();
+    document.getElementById('currentTime').textContent = now.toLocaleString();
+}
+
+function setAlarm() {
+    const alarmInput = document.getElementById('alarmTime').value;
+    const alarmTone = document.getElementById('alarmTone').value;
+
+    if (!alarmInput) {
+        alert("Please set a valid time for the alarm.");
+        return;
+    }
+
+    const alarmTime = new Date();
+    const [hours, minutes] = alarmInput.split(':');
+    alarmTime.setHours(hours, minutes, 0, 0);
+
+    if (alarmTime <= new Date()) {
+        alert("Please set a time in the future.");
+        return;
+    }
+
+    const alarm = {
+        time: alarmTime,
+        tone: alarmTone,
+        active: true
+    };
+
+    alarms.push(alarm);
+    localStorage.setItem('alarms', JSON.stringify(alarms));
+    renderAlarms();
+    scheduleAlarm(alarm);
+}
+
+function scheduleAlarm(alarm) {
+    const now = new Date();
+    const timeUntilAlarm = alarm.time - now;
+
+    if (timeUntilAlarm >= 0) {
+        const timeoutId = setTimeout(() => {
+            playAlarm(alarm.tone);
+            alarm.active = false;
+            renderAlarms();
+        }, timeUntilAlarm);
+
+        alarmTimeouts.push(timeoutId);
+    }
+}
+
+function playAlarm(tone) {
+    const audio = new Audio(`path/to/${tone}.mp3`); // Replace with actual audio paths
+    audio.play();
+
+    const dismissButton = confirm("Alarm is ringing! Press OK to dismiss.");
+    if (dismissButton) {
+        audio.pause();
+        audio.currentTime = 0;
+    }
+}
+
+function snoozeAlarm(index) {
+    const snoozeTime = new Date(alarms[index].time.getTime() + 5 * 60 * 1000);
+    alarms[index].time = snoozeTime;
+    localStorage.setItem('alarms', JSON.stringify(alarms));
+    scheduleAlarm(alarms[index]);
+    renderAlarms();
+}
+
+function renderAlarms() {
+    const alarmList = document.getElementById('alarmList');
+    alarmList.innerHTML = '';
+
+    alarms.forEach((alarm, index) => {
+        const alarmItem = document.createElement('li');
+        alarmItem.className = 'alarm-item';
+
+        const alarmTime = alarm.time.toLocaleTimeString();
+        alarmItem.textContent = `${alarmTime} - ${alarm.active ? 'Active' : 'Inactive'}`;
+
+        const toggleButton = document.createElement('button');
+        toggleButton.textContent = alarm.active ? 'Turn Off' : 'Turn On';
+        toggleButton.onclick = () => toggleAlarm(index);
+        alarmItem.appendChild(toggleButton);
+
+        const snoozeButton = document.createElement('button');
+        snoozeButton.textContent = 'Snooze';
+        snoozeButton.onclick = () => snoozeAlarm(index);
+        alarmItem.appendChild(snoozeButton);
+
+        alarmList.appendChild(alarmItem);
+    });
+}
+
+function toggleAlarm(index) {
+    alarms[index].active = !alarms[index].active;
+    localStorage.setItem('alarms', JSON.stringify(alarms));
+    renderAlarms();
+}
+
+document.getElementById('setAlarm').addEventListener('click', setAlarm);
+
+document.addEventListener('DOMContentLoaded', () => {
+    alarms = JSON.parse(localStorage.getItem('alarms')) || [];
+    alarms.forEach(scheduleAlarm);
+    renderAlarms();
+    setInterval(updateCurrentTime, 1000);
+});
